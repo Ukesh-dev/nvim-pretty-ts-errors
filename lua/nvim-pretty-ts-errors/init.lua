@@ -146,7 +146,7 @@ local function get_diagnostics_for_current_line()
   return formatted_diagnostics, hl_positions
 end
 
-local function get_window_size(lines)
+local function get_window_size(lines, max_width)
   local height = #lines
   local width = 0
 
@@ -159,7 +159,7 @@ local function get_window_size(lines)
   end
 
   -- Constrain width to a maximum
-  width = math.min(width, 70)
+  width = math.min(width, max_width or 80)
 
   return width, height
 end
@@ -203,7 +203,7 @@ local function show_line_diagnostics()
     vim.hl.range(buf, ns_id, hl_pos[1], hl_pos[2], hl_pos[3])
   end
 
-  local width, height = get_window_size(lines)
+  local width, height = get_window_size(lines, 80) -- Max width of 80
 
   -- Set buffer options for the floating window
   vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = buf })
