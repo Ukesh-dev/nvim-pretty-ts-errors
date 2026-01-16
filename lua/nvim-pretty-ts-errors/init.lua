@@ -163,11 +163,21 @@ end
 
 --- Creates and displays a floating diagnostic window at the cursor with all diagnostics for the current line.
 local function show_line_diagnostics()
-  -- Close existing window if it exists
+  -- If window exists and is valid, toggle focus
   if diagnostic_win_id and vim.api.nvim_win_is_valid(diagnostic_win_id) then
-    vim.api.nvim_win_close(diagnostic_win_id, true)
-    diagnostic_win_id = nil
-    diagnostic_buf_id = nil
+    local current_win = vim.api.nvim_get_current_win()
+
+    -- If we're currently in the diagnostic window, close it
+    if current_win == diagnostic_win_id then
+      vim.api.nvim_win_close(diagnostic_win_id, true)
+      diagnostic_win_id = nil
+      diagnostic_buf_id = nil
+      return
+    else
+      -- Otherwise, focus the diagnostic window
+      vim.api.nvim_set_current_win(diagnostic_win_id)
+      return
+    end
   end
 
   -- Create a new scratch buffer
@@ -197,7 +207,7 @@ local function show_line_diagnostics()
   vim.api.nvim_set_option_value("readonly", true, { buf = buf })
   vim.api.nvim_set_option_value("modifiable", false, { buf = buf })
 
-  -- Open the floating window FIRST
+  -- Open the floating window (now focusable)
   diagnostic_win_id = vim.api.nvim_open_win(buf, false, {
     relative = "cursor",
     row = 1,
@@ -205,6 +215,8 @@ local function show_line_diagnostics()
     width = width,
     height = height,
     style = "minimal",
+    border = "rounded", -- Add border for better visibility
+    focusable = true, -- Make it focusable
   })
 
   vim.api.nvim_set_option_value("wrap", true, { win = diagnostic_win_id })
@@ -225,17 +237,32 @@ local function show_line_diagnostics()
     vim.cmd("redraw")
   end, 20)
 
-  -- Create the auto-close trigger
+  -- Create the auto-close trigger (only when cursor moves in the ORIGINAL window)
   vim.api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI" }, {
     once = true,
     callback = function()
-      if diagnostic_win_id and vim.api.nvim_win_is_valid(diagnostic_win_id) then
+      -- Only close if we're not in the diagnostic window
+      local current_win = vim.api.nvim_get_current_win()
+      if
+        current_win ~= diagnostic_win_id
+        and diagnostic_win_id
+        and vim.api.nvim_win_is_valid(diagnostic_win_id)
+      then
         vim.api.nvim_win_close(diagnostic_win_id, true)
         diagnostic_win_id = nil
         diagnostic_buf_id = nil
       end
     end,
   })
+
+  -- Add keybinding to close with 'q' when inside the diagnostic window
+  vim.keymap.set("n", "q", function()
+    if vim.api.nvim_win_is_valid(diagnostic_win_id) then
+      vim.api.nvim_win_close(diagnostic_win_id, true)
+      diagnostic_win_id = nil
+      diagnostic_buf_id = nil
+    end
+  end, { buffer = buf, nowait = true, desc = "Close diagnostic window" })
 end
 
 -- Export the function
