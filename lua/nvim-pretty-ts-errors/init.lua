@@ -242,28 +242,6 @@ local function show_line_diagnostics()
     vim.cmd("redraw")
   end, 30)
 
-  -- Add scroll keybindings that work from the original window
-  local original_buf = vim.api.nvim_get_current_buf()
-  local scroll_map_opts = { buffer = original_buf, nowait = true }
-
-  -- Scroll down with <C-f>
-  vim.keymap.set("n", "<C-f>", function()
-    if diagnostic_win_id and vim.api.nvim_win_is_valid(diagnostic_win_id) then
-      vim.api.nvim_win_call(diagnostic_win_id, function()
-        vim.cmd("normal! \x06") -- <C-f> in the diagnostic window
-      end)
-    end
-  end, scroll_map_opts)
-
-  -- Scroll up with <C-b>
-  vim.keymap.set("n", "<C-b>", function()
-    if diagnostic_win_id and vim.api.nvim_win_is_valid(diagnostic_win_id) then
-      vim.api.nvim_win_call(diagnostic_win_id, function()
-        vim.cmd("normal! \x02") -- <C-b> in the diagnostic window
-      end)
-    end
-  end, scroll_map_opts)
-
   -- Add keybinding to close with 'q' when inside the diagnostic window
   vim.keymap.set("n", "q", function()
     if diagnostic_win_id and vim.api.nvim_win_is_valid(diagnostic_win_id) then
