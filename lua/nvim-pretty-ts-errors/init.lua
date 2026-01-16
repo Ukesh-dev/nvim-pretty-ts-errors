@@ -147,21 +147,29 @@ local function get_diagnostics_for_current_line()
 end
 
 local function get_window_size(lines, max_width)
-  local height = #lines
   local width = 0
+  local wrapped_height = 0
+
+  max_width = max_width or 80
 
   for _, line in ipairs(lines) do
-    -- Using vim.fn.strdisplaywidth accounts for tabs/multibyte chars
     local line_width = vim.fn.strdisplaywidth(line)
     if line_width > width then
       width = line_width
     end
+
+    -- Calculate how many wrapped lines this will take
+    if line_width > max_width then
+      wrapped_height = wrapped_height + math.ceil(line_width / max_width)
+    else
+      wrapped_height = wrapped_height + 1
+    end
   end
 
-  -- Constrain width to a maximum
-  width = math.min(width, max_width or 80)
+  -- Constrain width to maximum
+  width = math.min(width, max_width)
 
-  return width, height
+  return width, wrapped_height
 end
 
 --- Creates and displays a floating diagnostic window at the cursor with all diagnostics for the current line.
