@@ -207,7 +207,7 @@ local function show_line_diagnostics()
   vim.api.nvim_set_option_value("readonly", true, { buf = buf })
   vim.api.nvim_set_option_value("modifiable", false, { buf = buf })
 
-  -- Open the floating window (focusable) - initially hidden with winblend
+  -- Open the floating window (focusable)
   diagnostic_win_id = vim.api.nvim_open_win(buf, false, {
     relative = "cursor",
     row = 1,
@@ -221,13 +221,12 @@ local function show_line_diagnostics()
 
   vim.api.nvim_set_option_value("wrap", true, { win = diagnostic_win_id })
   vim.api.nvim_set_option_value("linebreak", true, { win = diagnostic_win_id })
-  vim.api.nvim_set_option_value("winblend", 100, { win = diagnostic_win_id }) -- Fully transparent initially
 
   -- Set filetype and start treesitter
   vim.api.nvim_set_option_value("filetype", "markdown", { buf = buf })
   vim.treesitter.start(buf, "markdown")
 
-  -- Give render-markdown time to attach and render, then make window visible
+  -- Give render-markdown time to attach and render
   vim.defer_fn(function()
     if not vim.api.nvim_buf_is_valid(buf) or not vim.api.nvim_win_is_valid(diagnostic_win_id) then
       return
@@ -235,14 +234,7 @@ local function show_line_diagnostics()
 
     -- Trigger events that plugins like render-markdown listen to
     vim.api.nvim_exec_autocmds("BufWinEnter", { buffer = buf })
-
-    -- Wait a bit more then make window visible
-    vim.defer_fn(function()
-      if vim.api.nvim_win_is_valid(diagnostic_win_id) then
-        vim.api.nvim_set_option_value("winblend", 0, { win = diagnostic_win_id })
-        vim.cmd("redraw")
-      end
-    end, 20)
+    vim.cmd("redraw")
   end, 30)
 
   -- Add keybinding to close with 'q' when inside the diagnostic window
