@@ -207,8 +207,6 @@ local function show_line_diagnostics()
 
   -- Set buffer options for the floating window
   vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = buf })
-  vim.api.nvim_set_option_value("readonly", true, { buf = buf })
-  vim.api.nvim_set_option_value("modifiable", false, { buf = buf })
 
   -- Open the floating window (focusable)
   diagnostic_win_id = vim.api.nvim_open_win(buf, false, {
@@ -222,8 +220,13 @@ local function show_line_diagnostics()
     focusable = true,
   })
 
+  -- Set window options for wrapping
   vim.api.nvim_set_option_value("wrap", true, { win = diagnostic_win_id })
   vim.api.nvim_set_option_value("linebreak", true, { win = diagnostic_win_id })
+
+  -- Now set buffer as readonly after window is created
+  vim.api.nvim_set_option_value("readonly", true, { buf = buf })
+  vim.api.nvim_set_option_value("modifiable", false, { buf = buf })
 
   -- Set filetype and start treesitter
   vim.api.nvim_set_option_value("filetype", "markdown", { buf = buf })
