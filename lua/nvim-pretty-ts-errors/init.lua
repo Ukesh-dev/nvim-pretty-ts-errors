@@ -163,11 +163,21 @@ end
 
 --- Creates and displays a floating diagnostic window at the cursor with all diagnostics for the current line.
 local function show_line_diagnostics()
-  -- Close existing window if it exists
+  -- If window exists and is valid, toggle focus
   if diagnostic_win_id and vim.api.nvim_win_is_valid(diagnostic_win_id) then
-    vim.api.nvim_win_close(diagnostic_win_id, true)
-    diagnostic_win_id = nil
-    diagnostic_buf_id = nil
+    local current_win = vim.api.nvim_get_current_win()
+
+    -- If we're currently in the diagnostic window, close it
+    if current_win == diagnostic_win_id then
+      vim.api.nvim_win_close(diagnostic_win_id, true)
+      diagnostic_win_id = nil
+      diagnostic_buf_id = nil
+      return
+    else
+      -- Otherwise, focus the diagnostic window
+      vim.api.nvim_set_current_win(diagnostic_win_id)
+      return
+    end
   end
 
   -- Create a new scratch buffer
@@ -197,68 +207,61 @@ local function show_line_diagnostics()
   vim.api.nvim_set_option_value("readonly", true, { buf = buf })
   vim.api.nvim_set_option_value("modifiable", false, { buf = buf })
 
-  -- Open the floating window FIRST
-  diagnostic_win_id = vim.api.nvim_open_win(buf, false, {
-    relative = "cursor",
-    row = 1,
-    col = 0,
-    width = width,
-    height = height,
-    style = "minimal",
-  })
-
-  vim.api.nvim_set_option_value("wrap", true, { win = diagnostic_win_id })
-  vim.api.nvim_set_option_value("linebreak", true, { win = diagnostic_win_id })
-
-  -- THEN set filetype and start treesitter (after window exists)
+  -- Set filetype and start treesitter BEFORE opening window to reduce flicker
   vim.api.nvim_set_option_value("filetype", "markdown", { buf = buf })
   vim.treesitter.start(buf, "markdown")
 
-  -- Give plugins time to attach, then trigger any necessary events
+  -- Trigger render-markdown attachment BEFORE window opens
+  vim.api.nvim_exec_autocmds("BufWinEnter", { buffer = buf })
+
+  -- Small delay to let render-markdown process before showing the window
   vim.defer_fn(function()
     if not vim.api.nvim_buf_is_valid(buf) then
       return
     end
 
-    -- Trigger events that plugins like render-markdown listen to
-    vim.api.nvim_exec_autocmds("BufWinEnter", { buffer = buf })
+    -- Open the floating window (focusable)
+    diagnostic_win_id = vim.api.nvim_open_win(buf, false, {
+      relative = "cursor",
+      row = 1,
+      col = 0,
+      width = width,
+      height = height,
+      style = "minimal",
+      border = "rounded",
+      focusable = true,
+    })
+
+    vim.api.nvim_set_option_value("wrap", true, { win = diagnostic_win_id })
+    vim.api.nvim_set_option_value("linebreak", true, { win = diagnostic_win_id })
+
+    -- Final redraw to ensure everything is rendered
     vim.cmd("redraw")
-  end, 20)
+  end, 50) -- Increased delay to ensure render-markdown completes before showing
 
-  -- Store the original window to return to after scrolling
-  local original_win = vim.api.nvim_get_current_win()
-
-  -- Add scroll keybindings that work from the original window
-  local scroll_map_opts = { buffer = vim.api.nvim_get_current_buf(), nowait = true }
-
-  -- Scroll down with <C-f>
-  vim.keymap.set("n", "<C-f>", function()
+  -- Add keybinding to close with 'q' when inside the diagnostic window
+  vim.keymap.set("n", "q", function()
     if diagnostic_win_id and vim.api.nvim_win_is_valid(diagnostic_win_id) then
-      vim.api.nvim_win_call(diagnostic_win_id, function()
-        vim.cmd("normal! \x06") -- <C-f> in the diagnostic window
-      end)
+      vim.api.nvim_win_close(diagnostic_win_id, true)
+      diagnostic_win_id = nil
+      diagnostic_buf_id = nil
     end
-  end, scroll_map_opts)
+  end, { buffer = buf, nowait = true, desc = "Close diagnostic window" })
 
-  -- Scroll up with <C-b>
-  vim.keymap.set("n", "<C-b>", function()
-    if diagnostic_win_id and vim.api.nvim_win_is_valid(diagnostic_win_id) then
-      vim.api.nvim_win_call(diagnostic_win_id, function()
-        vim.cmd("normal! \x02") -- <C-b> in the diagnostic window
-      end)
-    end
-  end, scroll_map_opts)
-
-  -- Create the auto-close trigger and cleanup scroll keybindings
+  -- Create the auto-close trigger (only when cursor moves in non-diagnostic window)
   vim.api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI" }, {
     once = true,
     callback = function()
-      if diagnostic_win_id and vim.api.nvim_win_is_valid(diagnostic_win_id) then
+      local current_win = vim.api.nvim_get_current_win()
+      if
+        current_win ~= diagnostic_win_id
+        and diagnostic_win_id
+        and vim.api.nvim_win_is_valid(diagnostic_win_id)
+      then
         vim.api.nvim_win_close(diagnostic_win_id, true)
         diagnostic_win_id = nil
         diagnostic_buf_id = nil
       end
-      -- Keybindings will be automatically removed when buffer is wiped
     end,
   })
 end
