@@ -158,6 +158,9 @@ local function get_window_size(lines)
     end
   end
 
+  -- Constrain width to a maximum
+  width = math.min(width, 70)
+
   return width, height
 end
 
