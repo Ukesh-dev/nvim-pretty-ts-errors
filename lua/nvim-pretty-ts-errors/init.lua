@@ -158,6 +158,10 @@ local function get_window_size(lines)
     end
   end
 
+  -- VS Code style: Add padding and set reasonable limits
+  width = math.min(width + 4, 80) -- Max width of 80, with padding
+  height = math.min(height, 20) -- Max height of 20 lines
+
   return width, height
 end
 
@@ -207,16 +211,17 @@ local function show_line_diagnostics()
   vim.api.nvim_set_option_value("readonly", true, { buf = buf })
   vim.api.nvim_set_option_value("modifiable", false, { buf = buf })
 
-  -- Open the floating window (focusable)
+  -- Open the floating window (focusable) - VS Code style
   diagnostic_win_id = vim.api.nvim_open_win(buf, false, {
     relative = "cursor",
-    row = 1,
+    row = 1, -- One line below cursor
     col = 0,
     width = width,
     height = height,
     style = "minimal",
-    border = "rounded",
+    border = "single", -- VS Code uses simple single-line border
     focusable = true,
+    zindex = 50, -- Ensure it appears above other floats
   })
 
   vim.api.nvim_set_option_value("wrap", true, { win = diagnostic_win_id })
