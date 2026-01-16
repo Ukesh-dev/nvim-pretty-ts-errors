@@ -158,10 +158,6 @@ local function get_window_size(lines)
     end
   end
 
-  -- VS Code style: Add padding and set reasonable limits
-  width = math.min(width + 4, 80) -- Max width of 80, with padding
-  height = math.min(height, 20) -- Max height of 20 lines
-
   return width, height
 end
 
@@ -211,17 +207,16 @@ local function show_line_diagnostics()
   vim.api.nvim_set_option_value("readonly", true, { buf = buf })
   vim.api.nvim_set_option_value("modifiable", false, { buf = buf })
 
-  -- Open the floating window (focusable) - VS Code style
+  -- Open the floating window (focusable)
   diagnostic_win_id = vim.api.nvim_open_win(buf, false, {
     relative = "cursor",
-    row = 1, -- One line below cursor
+    row = 1,
     col = 0,
     width = width,
     height = height,
     style = "minimal",
-    border = "single", -- VS Code uses simple single-line border
+    border = "rounded",
     focusable = true,
-    zindex = 50, -- Ensure it appears above other floats
   })
 
   vim.api.nvim_set_option_value("wrap", true, { win = diagnostic_win_id })
@@ -241,6 +236,28 @@ local function show_line_diagnostics()
     vim.api.nvim_exec_autocmds("BufWinEnter", { buffer = buf })
     vim.cmd("redraw")
   end, 30)
+
+  -- Add scroll keybindings that work from the original window
+  local original_buf = vim.api.nvim_get_current_buf()
+  local scroll_map_opts = { buffer = original_buf, nowait = true }
+
+  -- Scroll down with <C-f>
+  vim.keymap.set("n", "<C-f>", function()
+    if diagnostic_win_id and vim.api.nvim_win_is_valid(diagnostic_win_id) then
+      vim.api.nvim_win_call(diagnostic_win_id, function()
+        vim.cmd("normal! \x06") -- <C-f> in the diagnostic window
+      end)
+    end
+  end, scroll_map_opts)
+
+  -- Scroll up with <C-b>
+  vim.keymap.set("n", "<C-b>", function()
+    if diagnostic_win_id and vim.api.nvim_win_is_valid(diagnostic_win_id) then
+      vim.api.nvim_win_call(diagnostic_win_id, function()
+        vim.cmd("normal! \x02") -- <C-b> in the diagnostic window
+      end)
+    end
+  end, scroll_map_opts)
 
   -- Add keybinding to close with 'q' when inside the diagnostic window
   vim.keymap.set("n", "q", function()
