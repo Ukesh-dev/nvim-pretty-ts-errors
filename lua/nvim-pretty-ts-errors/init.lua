@@ -207,37 +207,43 @@ local function show_line_diagnostics()
   vim.api.nvim_set_option_value("readonly", true, { buf = buf })
   vim.api.nvim_set_option_value("modifiable", false, { buf = buf })
 
-  -- Set filetype and start treesitter BEFORE opening window to reduce flicker
+  -- Open the floating window (focusable) - initially hidden with winblend
+  diagnostic_win_id = vim.api.nvim_open_win(buf, false, {
+    relative = "cursor",
+    row = 1,
+    col = 0,
+    width = width,
+    height = height,
+    style = "minimal",
+    border = "rounded",
+    focusable = true,
+  })
+
+  vim.api.nvim_set_option_value("wrap", true, { win = diagnostic_win_id })
+  vim.api.nvim_set_option_value("linebreak", true, { win = diagnostic_win_id })
+  vim.api.nvim_set_option_value("winblend", 100, { win = diagnostic_win_id }) -- Fully transparent initially
+
+  -- Set filetype and start treesitter
   vim.api.nvim_set_option_value("filetype", "markdown", { buf = buf })
   vim.treesitter.start(buf, "markdown")
 
-  -- Trigger render-markdown attachment BEFORE window opens
-  vim.api.nvim_exec_autocmds("BufWinEnter", { buffer = buf })
-
-  -- Small delay to let render-markdown process before showing the window
+  -- Give render-markdown time to attach and render, then make window visible
   vim.defer_fn(function()
-    if not vim.api.nvim_buf_is_valid(buf) then
+    if not vim.api.nvim_buf_is_valid(buf) or not vim.api.nvim_win_is_valid(diagnostic_win_id) then
       return
     end
 
-    -- Open the floating window (focusable)
-    diagnostic_win_id = vim.api.nvim_open_win(buf, false, {
-      relative = "cursor",
-      row = 1,
-      col = 0,
-      width = width,
-      height = height,
-      style = "minimal",
-      border = "rounded",
-      focusable = true,
-    })
+    -- Trigger events that plugins like render-markdown listen to
+    vim.api.nvim_exec_autocmds("BufWinEnter", { buffer = buf })
 
-    vim.api.nvim_set_option_value("wrap", true, { win = diagnostic_win_id })
-    vim.api.nvim_set_option_value("linebreak", true, { win = diagnostic_win_id })
-
-    -- Final redraw to ensure everything is rendered
-    vim.cmd("redraw")
-  end, 50) -- Increased delay to ensure render-markdown completes before showing
+    -- Wait a bit more then make window visible
+    vim.defer_fn(function()
+      if vim.api.nvim_win_is_valid(diagnostic_win_id) then
+        vim.api.nvim_set_option_value("winblend", 0, { win = diagnostic_win_id })
+        vim.cmd("redraw")
+      end
+    end, 20)
+  end, 30)
 
   -- Add keybinding to close with 'q' when inside the diagnostic window
   vim.keymap.set("n", "q", function()
