@@ -255,14 +255,56 @@ local function show_line_diagnostics()
   local original_buf = vim.api.nvim_get_current_buf()
   local scroll_map_opts = { buffer = original_buf, nowait = true }
 
+  local original_cf = (function()
+    local existing = vim.fn.maparg("<C-f>", "n", false, true)
+    if existing and existing.callback then
+      return existing.callback
+    elseif existing and existing.rhs then
+      return function()
+        vim.cmd(existing.rhs)
+      end
+    else
+      return function()
+        vim.api.nvim_feedkeys(
+          vim.api.nvim_replace_termcodes("<C-f>", true, false, true),
+          "n",
+          false
+        )
+      end
+    end
+  end)()
+
   -- Scroll down with <C-f>
-  vim.keymap.set("n", "<C-f>", function()
+  --[[ vim.keymap.set("n", "<C-f>", function()
     if diagnostic_win_id and vim.api.nvim_win_is_valid(diagnostic_win_id) then
       vim.api.nvim_win_call(diagnostic_win_id, function()
         vim.cmd("normal! \x06") -- <C-f> in the diagnostic window
       end)
     end
-  end, scroll_map_opts)
+  end, scroll_map_opts) ]]
+  vim.keymap.set("n", "<C-f>", function()
+    -- [1] try to scroll the diagnostic window
+    if diagnostic_win_id and vim.api.nvim_win_is_valid(diagnostic_win_id) then
+      vim.api.nvim_win_call(diagnostic_win_id, function()
+        vim.cmd("normal! \x06")
+      end)
+      return -- truthy: chain stops
+    end
+    -- [2] fallback: run whatever C-f was before
+    original_cf()
+  end, { silent = true })
+
+  vim.keymap.set("n", "<C-f>", function()
+    -- [1] try to scroll the diagnostic window
+    if diagnostic_win_id and vim.api.nvim_win_is_valid(diagnostic_win_id) then
+      vim.api.nvim_win_call(diagnostic_win_id, function()
+        vim.cmd("normal! \x06")
+      end)
+      return -- truthy: chain stops
+    end
+    -- [2] fallback: run whatever C-f was before
+    original_cf()
+  end, { silent = true })
 
   -- Scroll up with <C-b>
   vim.keymap.set("n", "<C-b>", function()
