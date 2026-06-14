@@ -257,19 +257,23 @@ local function show_line_diagnostics()
 
   local original_cf = (function()
     local existing = vim.fn.maparg("<C-f>", "n", false, true)
-    if existing and existing.callback then
-      return existing.callback
-    elseif existing and existing.rhs then
-      return function()
-        vim.cmd(existing.rhs)
-      end
-    else
+    if not existing or existing.lhs == nil then
+      -- no mapping at all, feed the raw key (built-in page down)
       return function()
         vim.api.nvim_feedkeys(
           vim.api.nvim_replace_termcodes("<C-f>", true, false, true),
           "n",
           false
         )
+      end
+    elseif existing.callback then
+      -- lua function mapping
+      return existing.callback
+    else
+      -- string rhs (<cmd>...<CR>, :...<CR>, etc.) — must feed as keys, not vim.cmd
+      local keys = vim.api.nvim_replace_termcodes(existing.rhs, true, false, true)
+      return function()
+        vim.api.nvim_feedkeys(keys, "m", false)
       end
     end
   end)()
